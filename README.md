@@ -1,2 +1,3 @@
 # tugas_ca_github
-Setting Up Git
+ini adalah tugas ca kelompok cheshire
+anggota : ritchie,ervan,l.....
