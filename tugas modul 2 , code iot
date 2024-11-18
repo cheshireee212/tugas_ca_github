@@ -1,0 +1,130 @@
+#define BLYNK_TEMPLATE_ID "TMPL6tP47OuC_"
+#define BLYNK_TEMPLATE_NAME "tugas ca"
+#define BLYNK_AUTH_TOKEN "dFyt1TO9S_LuQfS_ebhf19obvx1Jn3cX"
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <ESP32Servo.h>
+#include <Wire.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+
+// Blynk WiFi credentials
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Fedora";
+char pass[] = "2506158178e";
+
+// Pin Definitions
+#define TRIG_PIN 2
+#define ECHO_PIN 4
+#define SERVO_PIN 13
+#define BUZZER_PIN 5
+
+// Ultrasonic Variables
+long duration;
+float distance;
+
+// Servo Object
+Servo myServo;
+
+// MPU6050 Object
+Adafruit_MPU6050 mpu;
+
+// Timer
+BlynkTimer timer;
+
+void setup() {
+  // Serial Monitor
+  Serial.begin(115200);
+
+  // Blynk Connection
+  Blynk.begin(auth, ssid, pass);
+
+  // Wait until connected to WiFi
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi");
+
+  // Ultrasonic Sensor Pins
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Buzzer Pin
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  // Servo Initialization
+  myServo.attach(SERVO_PIN);
+
+  // MPU6050 Initialization
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+
+  // Timer
+  timer.setInterval(1000L, sendSensorData);
+
+  Serial.println("Setup selesai!");
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
+
+void sendSensorData() {
+  // Read Ultrasonic Sensor
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  duration = pulseIn(ECHO_PIN, HIGH);
+  distance = duration * 0.034 / 2;
+
+  // Read Gyroscope and Accelerometer
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  // Control Servo and Buzzer Based on Distance
+  if (distance < 10) {
+    myServo.write(90); // Rotate servo
+    digitalWrite(BUZZER_PIN, HIGH); // Buzzer ON
+  } else {
+    myServo.write(0); // Reset servo
+    digitalWrite(BUZZER_PIN, LOW); // Buzzer OFF
+  }
+
+  // Send Data to Blynk
+  Blynk.virtualWrite(V0, distance);         // Distance data
+  Blynk.virtualWrite(V1, a.acceleration.x); // Accelerometer X
+  Blynk.virtualWrite(V2, a.acceleration.y); // Accelerometer Y
+  Blynk.virtualWrite(V3, a.acceleration.z); // Accelerometer Z
+  Blynk.virtualWrite(V4, g.gyro.x);         // Gyroscope X
+  Blynk.virtualWrite(V5, g.gyro.y);         // Gyroscope Y
+  Blynk.virtualWrite(V6, g.gyro.z);         // Gyroscope Z
+
+  // Debugging in Serial Monitor
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  Serial.print("Accel X: ");
+  Serial.println(a.acceleration.x);
+  Serial.print("Accel Y: ");
+  Serial.println(a.acceleration.y);
+  Serial.print("Accel Z: ");
+  Serial.println(a.acceleration.z);
+  Serial.print("Gyro X: ");
+  Serial.println(g.gyro.x);
+  Serial.print("Gyro Y: ");
+  Serial.println(g.gyro.y);
+  Serial.print("Gyro Z: ");
+  Serial.println(g.gyro.z);
+}
